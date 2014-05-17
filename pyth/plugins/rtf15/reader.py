@@ -180,14 +180,15 @@ class Rtf15Reader(PythReader):
 
             if next not in _CONTROLCHARS:
                 # Rewind, it's a meaningful character
-                self.source.seek(-1, 1)
+                # (Can not do a negative realtive seek in python 3, so fake it)
+                self.source.seek(self.source.tell() - 1, 0)
                 break
 
             if next in _DIGITS:
                 current = digits
 
             current.append(next)
-
+        
         return "".join(chars), "".join(digits)
 
 
@@ -280,7 +281,7 @@ class DocBuilder(object):
             joinedRuns[-1].content[0] = joinedRuns[-1].content[0].rstrip()
             self.block.content = joinedRuns
         else:
-            self.block = None
+            self.block.content = joinedRuns # Want to see empty paragraphs
 
 
     def flushParagraph(self):
@@ -292,6 +293,9 @@ class DocBuilder(object):
 
 
     def handle_unicode(self, bit):
+        self.run.append(bit)
+
+    def handle_str(self, bit):
         self.run.append(bit)
 
 
@@ -310,8 +314,19 @@ class DocBuilder(object):
 
         prevListLevel = self.listLevel
         self.listLevel = para.listLevel
-
-        if self.listLevel > prevListLevel:
+        
+        if prevListLevel is None and self.listLevel is None:
+            pass
+            
+        elif prevListLevel is None:
+            l = document.List()
+            self.listStack.append(l)
+            
+        elif self.listLevel is None:
+            l = self.listStack.pop()
+            self.listStack[-1].append(l)
+            
+        elif self.listLevel > prevListLevel:
             l = document.List()
             self.listStack.append(l)
 
@@ -405,7 +420,7 @@ class Group(object):
 
 
     def char(self, char):
-        self.content.append(char.decode(self.charset, self.reader.errors))
+        self.content.append(char)
 
 
     def _finalize(self):
@@ -518,7 +533,7 @@ class Group(object):
                 char = unichr(uni_code)
 
         else:
-            char = chr(code).decode(self.charset, self.reader.errors)
+            char = chr(code)
 
         self.content.append(char)
 
@@ -532,7 +547,7 @@ class Group(object):
     def handle_u(self, codepoint):
         codepoint = int(codepoint)
         try:
-            char = unichr(codepoint)
+            char = chr(codepoint)
         except ValueError:
             if self.reader.errors == 'replace':
                 char = '?'
@@ -558,7 +573,7 @@ class Group(object):
 
 
     def handle_line(self):
-        self.content.append(u"\n")
+        self.content.append("\n")
 
 
     def handle_b(self, onOff=None):
@@ -650,7 +665,7 @@ class Group(object):
             except:
                 return u""
 
-            match = re.match(ur'HYPERLINK "(.*)"', destination)
+            match = re.match(r'HYPERLINK "(.*)"', destination)
             if match:
                 content.skip = False
                 self.content = [ReadableMarker("url", match.group(1)),

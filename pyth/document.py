@@ -8,7 +8,7 @@ class _PythBase(object):
         self.properties = {}
         self.content = []
         
-        for (k,v) in properties.iteritems():
+        for (k,v) in properties.items():
             self[k] = v
 
         for item in content:
@@ -70,7 +70,7 @@ class Text(_PythBase):
     """
 
     validProperties = ('bold', 'italic', 'underline', 'url', 'sub', 'super')
-    contentType = unicode
+    contentType = str
 
     def __repr__(self):
         return "Text('%s' %s)" % ("".join("[%s]" % r.encode("utf-8") for r in self.content), self.properties)
